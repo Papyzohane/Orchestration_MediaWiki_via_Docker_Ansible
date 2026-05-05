@@ -1,0 +1,27 @@
+Ce projet démontre une expertise en Infrastructure as Code (IaC), visant à supprimer les erreurs humaines liées aux installations manuelles.
+
+    Objectifs détaillés :
+
+        -Isolation de services : Segmenter l'architecture en micro-services (Web, Database) via Docker pour faciliter la maintenance et la mise à jour.  
+
+        -Automatisation complète : Créer un "Playbook maître" capable de déployer toute la plateforme sur une machine vierge en une seule commande.  
+
+        -Personnalisation Ansible : Étendre les fonctionnalités natives d'Ansible par le développement de modules Python pour répondre à des besoins métiers (statistiques de base de données).
+
+    Réussites techniques :
+
+        -Implémentation réussie d'Ansible Vault pour le chiffrement des données sensibles, permettant de versionner le code sans exposer les mots de passe.  
+
+        -Structuration professionnelle des rôles (Apache, MariaDB, MediaWiki) permettant la réutilisation de chaque brique dans d'autres projets.
+
+    Difficultés et solutions :
+
+        -Connectivité SSH interne : Configuration des tunnels SSH pour permettre au "Node Manager" de piloter les conteneurs Docker comme s'il s'agissait de serveurs physiques.
+
+        -Dépendances PHP : Résolution des conflits de versions entre les extensions PHP requises par MediaWiki et l'environnement système de l'image Ubuntu.
+
+    AC Validés :
+
+        -AC33.02 : Mettre en place un environnement de travail collaboratif informatique.  
+
+        -AC34.02ROM : Administrer et déployer des fonctions réseaux virtualisées et programmer le réseau.

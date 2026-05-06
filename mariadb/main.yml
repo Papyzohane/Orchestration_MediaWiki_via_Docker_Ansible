@@ -1,0 +1,39 @@
+---
+- name: Mettre à jour le cache APT
+  ansible.builtin.apt:
+    update_cache: yes
+
+- name: Installer MariaDB Server
+  ansible.builtin.apt:
+    name: mariadb-server
+    state: present
+
+- name: S'assurer que MariaDB est démarré (contourner détection Ansible)
+  ansible.builtin.command: service mariadb start
+  changed_when: false
+
+- name: Créer base et utilisateur GLPI (localhost)
+  ansible.builtin.shell: |
+    mysql -uroot -p'{{ mariadb_root_password }}' <<EOF
+    CREATE DATABASE IF NOT EXISTS {{ glpi_db_name }};
+    CREATE USER IF NOT EXISTS 'glpi'@'localhost' IDENTIFIED BY '{{ glpi_db_password }}';
+    GRANT ALL PRIVILEGES ON {{ glpi_db_name }}.* TO 'glpi'@'localhost';
+    GRANT SELECT ON mysql.time_zone_name TO 'glpi'@'localhost';
+    FLUSH PRIVILEGES;
+    EOF
+  changed_when: false
+
+- name: Charger timezones MariaDB
+  ansible.builtin.shell: |
+    mysql_tzinfo_to_sql /usr/share/zoneinfo | mysql -uroot -p'{{ mariadb_root_password }}' mysql
+  changed_when: false
+
+- name: Autoriser l'utilisateur GLPI à se connecter depuis le réseau Docker
+  ansible.builtin.shell: |
+    mysql -uroot -p'{{ mariadb_root_password }}' <<EOF
+    CREATE USER IF NOT EXISTS 'glpi'@'%' IDENTIFIED BY '{{ glpi_db_password }}';
+    GRANT ALL PRIVILEGES ON {{ glpi_db_name }}.* TO 'glpi'@'%';
+    GRANT SELECT ON mysql.time_zone_name TO 'glpi'@'%';
+    FLUSH PRIVILEGES;
+    EOF
+  changed_when: false

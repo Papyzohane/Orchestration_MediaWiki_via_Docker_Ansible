@@ -1,0 +1,61 @@
+---
+- name: Installer Apache et PHP
+  ansible.builtin.apt:
+    update_cache: yes
+    name:
+      - apache2
+      - libapache2-mod-php
+      - php-apcu
+      - php-cli
+      - php-common
+      - php-curl
+      - php-gd
+      - php-imap
+      - php-ldap
+      - php-mysql
+      - php-xmlrpc
+      - php-xml
+      - php-mbstring
+      - php-bcmath
+      - php-intl
+      - php-zip
+      - php-redis
+      - php-bz2
+      - php-soap
+      - php-cas
+      - acl
+    state: present
+  notify: restart apache
+
+- name: Déployer le VirtualHost GLPI
+  ansible.builtin.template:
+    src: glpi.conf.j2
+    dest: /etc/apache2/sites-available/glpi.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart apache
+
+- name: Désactiver le site par défaut Apache
+  ansible.builtin.shell: a2dissite 000-default.conf
+  changed_when: false 
+  notify: restart apache
+
+- name: Activer le module rewrite
+  ansible.builtin.shell: a2enmod rewrite
+  changed_when: false 
+  notify: restart apache
+
+- name: Activer le site GLPI
+  ansible.builtin.shell: a2ensite glpi.conf
+  changed_when: false
+  notify: restart apache
+
+- name: S'assurer qu'Apache est démarré
+  ansible.builtin.shell: apachectl start
+  changed_when: false
+  notify: restart apache
+
+- name: Setup GLPI app
+  ansible.builtin.import_tasks: glpi_setup.yml
+

@@ -1,0 +1,151 @@
+---
+# Téléchargement et déploiement GLPI + FHS + DB install
+
+- name: Créer le répertoire /var/www/html
+  ansible.builtin.file:
+    path: /var/www/html
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Télécharger l’archive GLPI
+  ansible.builtin.get_url:
+    url: "https://github.com/glpi-project/glpi/releases/download/11.0.0/glpi-11.0.0.tgz"
+    dest: "/var/www/html/glpi-11.0.0.tgz"
+    mode: '0644'
+
+- name: Extraire l’archive GLPI
+  ansible.builtin.shell: |
+    rm -rf /var/www/html/glpi
+    tar xzf /var/www/html/glpi-11.0.0.tgz -C /var/www/html
+    chown -R www-data:www-data /var/www/html/glpi
+  args:
+    executable: /bin/bash
+  changed_when: false
+  notify: restart apache
+
+- name: Créer répertoires FHS GLPI complets
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+  loop:
+    - /etc/glpi
+    - /var/lib/glpi
+    - /var/lib/glpi/files
+    - /var/lib/glpi/_cache
+    - /var/lib/glpi/_cron
+    - /var/lib/glpi/_lock
+    - /var/lib/glpi/_log
+    - /var/lib/glpi/_pictures  
+    - /var/lib/glpi/_plugins
+    - /var/lib/glpi/_sessions
+    - /var/lib/glpi/_tmp
+    - /var/lib/glpi/_uploads
+    - /var/log/glpi
+
+- name: Permissions avancées logs GLPI (775/664)
+  ansible.builtin.file:
+    path: /var/log/glpi
+    owner: www-data
+    group: www-data
+    mode: '0775'
+    recurse: yes
+
+- name: Permissions fichiers logs (664)
+  ansible.builtin.shell: find /var/log/glpi -type f -exec chmod 0664 {} \;
+  changed_when: false
+
+- name: Corriger propriétaires après extraction
+  ansible.builtin.file:
+    path: /var/www/html/glpi
+    owner: www-data
+    group: www-data
+    recurse: yes
+
+- name: Permissions fichiers GLPI (644)
+  ansible.builtin.shell: find /var/www/html/glpi -type f -exec chmod 0644 {} \;
+  changed_when: false
+
+- name: Permissions dossiers GLPI (755)
+  ansible.builtin.shell: find /var/www/html/glpi -type d -exec chmod 0755 {} \;
+  changed_when: false
+
+- name: Créer downstream.php
+  ansible.builtin.copy:
+    dest: /var/www/html/glpi/inc/downstream.php
+    owner: www-data
+    group: www-data
+    mode: '0644'
+    content: |
+      <?php
+      define('GLPI_CONFIG_DIR', '/etc/glpi/');
+      if (file_exists(GLPI_CONFIG_DIR . '/local_define.php')) {
+          require_once GLPI_CONFIG_DIR . '/local_define.php';
+      }
+
+- name: Déplacer config et files vers FHS
+  ansible.builtin.command: "{{ item.cmd }}"
+  args:
+    creates: "{{ item.creates }}"
+  loop:
+    - { cmd: 'mv /var/www/html/glpi/config /etc/glpi', creates: '/etc/glpi/config' }
+    - { cmd: 'mv /var/www/html/glpi/files /var/lib/glpi', creates: '/var/lib/glpi/files' }
+  notify: restart apache
+
+- name: Créer local_define.php
+  ansible.builtin.copy:
+    dest: /etc/glpi/local_define.php
+    owner: www-data
+    group: www-data
+    mode: '0644'
+    content: |
+      <?php
+      define('GLPI_VAR_DIR', '/var/lib/glpi');
+      define('GLPI_DOC_DIR', GLPI_VAR_DIR);
+      define('GLPI_CACHE_DIR', GLPI_VAR_DIR . '/_cache');
+      define('GLPI_CRON_DIR', GLPI_VAR_DIR . '/_cron');
+      define('GLPI_GRAPH_DIR', GLPI_VAR_DIR . '/_graphs');
+      define('GLPI_LOCAL_I18N_DIR', GLPI_VAR_DIR . '/_locales');
+      define('GLPI_LOCK_DIR', GLPI_VAR_DIR . '/_lock');
+      define('GLPI_PICTURE_DIR', GLPI_VAR_DIR . '/_pictures');
+      define('GLPI_PLUGIN_DOC_DIR', GLPI_VAR_DIR . '/_plugins');
+      define('GLPI_RSS_DIR', GLPI_VAR_DIR . '/_rss');
+      define('GLPI_SESSION_DIR', GLPI_VAR_DIR . '/_sessions');
+      define('GLPI_TMP_DIR', GLPI_VAR_DIR . '/_tmp');
+      define('GLPI_UPLOAD_DIR', GLPI_VAR_DIR . '/_uploads');
+      define('GLPI_INVENTORY_DIR', GLPI_VAR_DIR . '/_inventories');
+      define('GLPI_THEMES_DIR', GLPI_VAR_DIR . '/_themes');
+      define('GLPI_LOG_DIR', '/var/log/glpi');
+  notify: restart apache
+
+- name: Exécuter installateur GLPI (avec force et www-data)
+  ansible.builtin.shell: |
+    cd /var/www/html/glpi && \
+    sudo -u www-data php bin/console glpi:db:install \
+      --no-interaction \
+      --allow-superuser \
+      --force \
+      --db-host={{ glpi_db_host | default('mariadb_glpi') }} \
+      --db-name={{ glpi_db_name | default('glpi') }} \
+      --db-user=glpi \
+      --db-password={{ glpi_db_password | default('RootPass123!') }}
+  args:
+    executable: /bin/bash
+  become_user: www-data
+  register: glpi_install
+  failed_when: false
+  notify: restart apache
+
+- name: Activer timezones
+  ansible.builtin.shell: |
+    cd /var/www/html/glpi && \
+    sudo -u www-data php bin/console database:enable_timezones
+  become_user: www-data
+  register: enable_timezones
+  failed_when: false
+  ignore_errors: yes
+

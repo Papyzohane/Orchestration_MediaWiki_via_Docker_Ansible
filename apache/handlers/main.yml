@@ -1,0 +1,5 @@
+---
+- name: restart apache
+  ansible.builtin.shell: apachectl graceful
+  listen: restart apache
+

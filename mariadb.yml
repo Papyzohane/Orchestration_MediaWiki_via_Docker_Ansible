@@ -1,0 +1,13 @@
+---
+- name: Installer et préparer MariaDB pour GLPI
+  hosts: mariadb
+  become: yes
+
+  vars:
+    mariadb_root_password: "RootPass123!"
+    glpi_db_name: "glpi"
+    glpi_db_password: "RootPass123!"
+
+  roles:
+    - mariadb_glpi
+

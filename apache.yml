@@ -1,0 +1,15 @@
+---
+- name: Installer Apache+PHP+GLPI
+  hosts: apache
+  become: yes
+  vars:
+    glpi_server_name: "glpi.local"
+    glpi_db_host: "mariadb_glpi"
+    glpi_db_name: "glpi"
+    glpi_db_password: "RootPass123!"
+
+  roles:
+    - apache_glpi
+  handlers:
+    - name: restart apache
+      ansible.builtin.shell: apachectl graceful
